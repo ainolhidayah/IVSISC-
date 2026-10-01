@@ -1,0 +1,375 @@
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { CheckCircle, AlertCircle, Save, User, Award, ShieldCheck } from 'lucide-react';
+
+// Inisialisasi Supabase Client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Data Rubrik Deskriptor 6 Domain
+const RUBRIK_DATA = [
+  {
+    id: 'skor_bimbingan',
+    nama: '1. Bimbingan Profesional',
+    wajaran: 25,
+    kod: 'P2',
+    deskriptor: {
+      5: 'Memiliki kepakaran tertinggi dalam bidang bimbingan & pementoran; berupaya mengemudi perubahan sistemik dan menjadi pakar rujuk peringkat PPD.',
+      4: 'Memiliki pengetahuan dan kemahiran yang sangat tinggi; berupaya menjadi pakar rujuk tempatan, mengurus emosi guru tegar, serta membimbing rakan pembimbing lain.',
+      3: 'Memiliki pengetahuan dan kemahiran yang lengkap, berupaya mengatur, membimbing, dan memimpin sesi bimbingan secara profesional dan tersusun berasaskan standard KPM.',
+      2: 'Memiliki pengetahuan dan kemahiran yang mencukupi untuk melaksanakan sesi bimbingan berpandukan struktur asas, namun masih memerlukan panduan/bimbingan minimum.',
+      1: 'Memiliki pengetahuan asas mengenai konsep bimbingan tetapi masih cenderung menggunakan pendekatan mengarah (directing / instructing) berbanding membimbing (coaching).'
+    }
+  },
+  {
+    id: 'skor_instruksional',
+    nama: '2. Competency Instruksional',
+    wajaran: 20,
+    kod: 'K4',
+    deskriptor: {
+      5: 'Mentafsir kurikulum dengan tepat, mengenal pasti jurang dan membimbing penjajaran standard, objektif, aktiviti serta pentaksiran.',
+      4: 'Menguasai struktur kurikulum dan mampu membimbing pelaksanaan secara sistematik.',
+      3: 'Memahami dokumen kurikulum dan asas penjajaran.',
+      2: 'Mengetahui komponen kurikulum tetapi kurang jelas tentang aplikasi.',
+      1: 'Tidak dapat menerangkan hasrat atau struktur kurikulum dengan tepat.'
+    }
+  },
+  {
+    id: 'skor_pemikiran_strategik',
+    nama: '3. Pemikiran Strategik',
+    wajaran: 20,
+    kod: 'PS1',
+    deskriptor: {
+      5: 'Melihat isu secara sistemik, menganalisis punca akar dan membina strategi jangka pendek serta jangka panjang.',
+      4: 'Menganalisis isu, alternatif, risiko dan kebolehlaksanaan.',
+      3: 'Mengenal pasti isu utama dan mencadangkan penyelesaian munasabah.',
+      2: 'Cadangan bersifat reaktif dan menangani simptom sahaja.',
+      1: 'Tidak dapat mengenal pasti masalah sebenar.'
+    }
+  },
+  {
+    id: 'skor_analisis_data',
+    nama: '4. Analisis Data',
+    wajaran: 15,
+    kod: 'C2',
+    deskriptor: {
+      5: 'Menganalisis isu secara menyeluruh menggunakan pelbagai sumber data dan evidens, mengenal pasti punca sebenar, menetapkan keutamaan strategik yang tepat, merancang intervensi inovatif berimpak tinggi.',
+      4: 'Menganalisis isu menggunakan data yang relevan, mengenal pasti punca utama, menetapkan keutamaan yang sesuai serta merancang intervensi realistik.',
+      3: 'Mengenal pasti isu utama dan mencadangkan intervensi bersesuaian, namun analisis data/justifikasi masih kurang menyeluruh.',
+      2: 'Mengenal pasti sebahagian isu sahaja. Intervensi bersifat umum dan kurang berasaskan data.',
+      1: 'Tidak dapat mengenal pasti isu sebenar dan tidak menggunakan data sebagai asas pertimbangan.'
+    }
+  },
+  {
+    id: 'skor_interpersonal',
+    nama: '5. Interpersonal',
+    wajaran: 10,
+    kod: 'S3',
+    deskriptor: {
+      5: 'Berkomunikasi secara jelas, empatik dan meyakinkan serta menunjukkan integriti dan kestabilan emosi.',
+      4: 'Komunikasi tersusun, profesional dan sesuai dengan kumpulan sasaran.',
+      3: 'Komunikasi dapat difahami dan menunjukkan profesionalisme asas.',
+      2: 'Jawapan kurang tersusun atau terlalu umum.',
+      1: 'Memahami etika asas perkhidmatan tetapi sukar mengurus emosi diri, cenderung kaku, dan cepat defensif apabila dikritik.'
+    }
+  },
+  {
+    id: 'skor_evidens',
+    nama: '6. Evidens Profesional (Dokumen Sokongan)',
+    wajaran: 10,
+    kod: 'EVIDENS',
+    deskriptor: {
+      5: 'Mengemukakan evidens yang sangat relevan, sahih, terkini dan tersusun. Terdapat triangulasi evidens (laporan, data sebelum-selepas, modul, testimoni).',
+      4: 'Dokumen relevan, sahih dan menunjukkan pengalaman serta kompetensi yang kukuh. Terdapat bukti pelaksanaan dan sebahagian bukti impak.',
+      3: 'Dokumen mempunyai kaitan dengan pengalaman tetapi lebih banyak menunjukkan penglibatan/aktiviti berbanding impak.',
+      2: 'Dokumen kurang relevan atau terlalu berfokus kepada sijil penyertaan semata-mata. Bukti kepimpinan/coaching adalah lemah.',
+      1: 'Dokumen sangat minimum, tidak tersusun, tidak dapat disahkan atau tiada hubungan jelas dengan fungsi SISC+.'
+    }
+  }
+];
+
+export default function PanelForm() {
+  const [zon, setZon] = useState('');
+  const [bilik, setBilik] = useState('');
+  const [calonList, setCalonList] = useState([]);
+  const [selectedKP, setSelectedKP] = useState('');
+  const [selectedCalon, setSelectedCalon] = useState(null);
+
+  // State Skor Panel (Key-Value 1-5)
+  const [scores, setScores] = useState({
+    skor_bimbingan: 0,
+    skor_instruksional: 0,
+    skor_pemikiran_strategik: 0,
+    skor_analisis_data: 0,
+    skor_interpersonal: 0,
+    skor_evidens: 0
+  });
+
+  const [ulasan, setUlasan] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Cari calon mengikut Zon & Bilik
+  useEffect(() => {
+    if (zon && bilik) {
+      fetchCalonByZonBilik();
+    } else {
+      setCalonList([]);
+      setSelectedCalon(null);
+    }
+  }, [zon, bilik]);
+
+  const fetchCalonByZonBilik = async () => {
+    const { data, error } = await supabase
+      .from('calon')
+      .select('*')
+      .eq('zon_temuduga', zon)
+      .eq('bilik_temuduga', bilik);
+
+    if (!error) setCalonList(data || []);
+  };
+
+  // Auto-fill maklumat calon apabila No. KP dipilih
+  const handleSelectKP = (kp) => {
+    setSelectedKP(kp);
+    const calonFound = calonList.find(c => c.no_kp === kp);
+    setSelectedCalon(calonFound || null);
+  };
+
+  // Kira Pengiraan Markah Keseluruhan (%)
+  const calculateTotalScore = () => {
+    let total = 0;
+    RUBRIK_DATA.forEach(r => {
+      const skorSelected = scores[r.id] || 0;
+      total += (skorSelected / 5) * r.wajaran;
+    });
+    return total.toFixed(2);
+  };
+
+  // Semakan Syarat Perakuan KPM (Jumlah >= 75% DAN Tiada Skor < 3 bagi domain kritikal)
+  const checkPassStatus = (totalScore) => {
+    if (totalScore < 75) return false;
+    // Syarat minimum: Skor mestilah >= 3 bagi domain utama
+    if (scores.skor_bimbingan < 3 || scores.skor_instruksional < 3 || scores.skor_pemikiran_strategik < 3 || scores.skor_analisis_data < 3) {
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmitAssessment = async (e) => {
+    e.preventDefault();
+    if (!selectedCalon) return alert('Sila pilih calon terlebih dahulu.');
+
+    // Semak jika ada skor yang belum diisi
+    const hasEmptyScore = Object.values(scores).some(val => val === 0);
+    if (hasEmptyScore) return alert('Sila pastikan anda telah memberikan skor bagi kesemua 6 domain.');
+
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    const totalMarkah = calculateTotalScore();
+    const statusLulus = checkPassStatus(totalMarkah);
+
+    // Ambil User Logged In
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const payload = {
+      no_kp_calon: selectedCalon.no_kp,
+      id_panel: user?.id || null,
+      zon: zon,
+      bilik: bilik,
+      ...scores,
+      jumlah_markah: parseFloat(totalMarkah),
+      status_lulus: statusLulus,
+      ulasan_panel: ulasan
+    };
+
+    const { error } = await supabase.from('penilaian_skor').insert([payload]);
+
+    if (error) {
+      setMessage({ type: 'error', text: 'Gagal menyimpan penilaian: ' + error.message });
+    } else {
+      setMessage({ type: 'success', text: 'Penilaian berjaya disimpan secara rasmi!' });
+      // Reset Form
+      setScores({ skor_bimbingan: 0, skor_instruksional: 0, skor_pemikiran_strategik: 0, skor_analisis_data: 0, skor_interpersonal: 0, skor_evidens: 0 });
+      setUlasan('');
+      setSelectedCalon(null);
+      setSelectedKP('');
+    }
+    setLoading(false);
+  };
+
+  const currentTotal = calculateTotalScore();
+  const isPassed = checkPassStatus(currentTotal);
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-5xl mx-auto">
+        {/* Header Borang Penilaian */}
+        <div className="bg-blue-900 text-white p-6 rounded-lg shadow-md mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold">Borang Penilaian Panel Penemuduga</h1>
+            <p className="text-blue-200 text-xs mt-1">Jawatan School Improvement Specialist Coaches Plus (SISC+)</p>
+          </div>
+          <ShieldCheck size={32} className="text-blue-300" />
+        </div>
+
+        {/* Notifikasi Mesej */}
+        {message.text && (
+          <div className={`p-4 mb-6 rounded-md flex items-center gap-2 ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {message.type === 'error' ? <AlertCircle size={20}/> : <CheckCircle size={20}/>}
+            <span className="text-sm font-medium">{message.text}</span>
+          </div>
+        )}
+
+        {/* Langkah 1: Pilih Zon & Bilik */}
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">1. Pilih Zon Temuduga</label>
+            <select
+              className="w-full p-2.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+              value={zon}
+              onChange={(e) => setZon(e.target.value)}
+            >
+              <option value="">-- Pilih Zon --</option>
+              <option value="Zon Tengah">Zon Tengah</option>
+              <option value="Zon Utara">Zon Utara</option>
+              <option value="Zon Selatan">Zon Selatan</option>
+              <option value="Zon Sabah">Zon Sabah</option>
+              <option value="Zon Sarawak">Zon Sarawak</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">2. Pilih Bilik Temuduga</label>
+            <input
+              type="text"
+              placeholder="Contoh: Bilik Delima / Bilik 1"
+              className="w-full p-2.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+              value={bilik}
+              onChange={(e) => setBilik(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Langkah 2: Pilih No. KP Calon */}
+        {zon && bilik && (
+          <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm mb-6">
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">3. Pilih Nombor Kad Pengenalan Calon</label>
+            <select
+              className="w-full p-2.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono"
+              value={selectedKP}
+              onChange={(e) => handleSelectKP(e.target.value)}
+            >
+              <option value="">-- Pilih No. KP Calon --</option>
+              {calonList.map(c => (
+                <option key={c.no_kp} value={c.no_kp}>
+                  {c.no_kp} - {c.nama_penuh}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Paparan Maklumat Penuh Calon (Read-Only) */}
+        {selectedCalon && (
+          <div className="bg-blue-50 border border-blue-200 p-5 rounded-lg mb-6 shadow-sm">
+            <h3 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2 border-b border-blue-200 pb-2">
+              <User size={18} /> Maklumat Terkunci Calon (Read-Only)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-800">
+              <p><strong>Nama Penuh:</strong> {selectedCalon.nama_penuh}</p>
+              <p><strong>Nombor KP:</strong> <span className="font-mono">{selectedCalon.no_kp}</span></p>
+              <p><strong>Zon Temuduga:</strong> {selectedCalon.zon_temuduga}</p>
+              <p><strong>Bilik Temuduga:</strong> {selectedCalon.bilik_temuduga}</p>
+              <p className="md:col-span-2"><strong>Subject Matter Expert (SME):</strong> <span className="bg-blue-200 text-blue-800 px-2 py-0.5 rounded font-bold">{selectedCalon.sme_subjek}</span></p>
+            </div>
+          </div>
+        )}
+
+        {/* Langkah 3: Penilaian Skor Rubrik 6 Domain */}
+        {selectedCalon && (
+          <form onSubmit={handleSubmitAssessment} className="space-y-6">
+            {RUBRIK_DATA.map((domain) => (
+              <div key={domain.id} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-3 border-b pb-2">
+                  <h4 className="font-bold text-slate-800 text-sm">{domain.nama}</h4>
+                  <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded">
+                    Wajaran: {domain.wajaran}%
+                  </span>
+                </div>
+
+                {/* Butang Pilihan Skor 1 - 5 */}
+                <div className="flex gap-2 mb-4">
+                  {[1, 2, 3, 4, 5].map((skorVal) => (
+                    <button
+                      type="button"
+                      key={skorVal}
+                      onClick={() => setScores({ ...scores, [domain.id]: skorVal })}
+                      className={`flex-1 py-2 rounded text-xs font-bold border transition-all ${
+                        scores[domain.id] === skorVal
+                          ? 'bg-blue-600 text-white border-blue-600 shadow'
+                          : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      Skor {skorVal}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Deskriptor Rubrik Auto-Display */}
+                {scores[domain.id] > 0 && (
+                  <div className="bg-slate-50 p-3 rounded border border-slate-200 text-xs text-slate-700 italic">
+                    <strong>Deskriptor Skor {scores[domain.id]}:</strong> "{domain.deskriptor[scores[domain.id]]}"
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Petak Ulasan Panel */}
+            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Ulasan Penemuduga</label>
+              <textarea
+                rows="3"
+                placeholder="Masukkan sebarang ulasan atau catatan tambahan berkenaan calon..."
+                className="w-full p-2.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-xs"
+                value={ulasan}
+                onChange={(e) => setUlasan(e.target.value)}
+              ></textarea>
+            </div>
+
+            {/* Ringkasan Markah & Syarat Lulus */}
+            <div className="bg-slate-900 text-white p-6 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Jumlah Markah Dikira</p>
+                <div className="text-3xl font-extrabold text-blue-400 mt-1">{currentTotal}%</div>
+              </div>
+
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1">Status Syarat KPM</p>
+                {isPassed ? (
+                  <span className="bg-green-500 text-white font-bold px-3 py-1 rounded-full text-xs">
+                    MEMENUHI SYARAT PERAKUAN
+                  </span>
+                ) : (
+                  <span className="bg-red-500 text-white font-bold px-3 py-1 rounded-full text-xs">
+                    TIDAK MEMENUHI SYARAT (MIN 75% & SKOR ≥ 3)
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-lg shadow transition-all text-sm"
+              >
+                <Save size={18} /> {loading ? 'Menyimpan...' : 'Simpan & Hantar Markah'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
